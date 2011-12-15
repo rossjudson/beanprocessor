@@ -4,6 +4,8 @@
 	<groupId>com.soletta</groupId>
 	<artifactId>beanprocessor-test</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+	<name>BeanProcessor :: Test</name>
+	<description>JUnit tests for the BeanProcessor, using the test beans project.</description>
 	<dependencies>
 		<dependency>
 			<groupId>com.soletta</groupId>

@@ -9,7 +9,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
 
-	<name>Soletta BeanProcessor</name>
+	<name>BeanProcessor</name>
 	<description>
 Builds JavaBean boilerplate by generating a superclass. This project does basic property generation, 
 PropertyChangeListener support, and some extensions that have been useful to me. 

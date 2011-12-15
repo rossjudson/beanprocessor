@@ -4,6 +4,12 @@
 	<groupId>com.soletta</groupId>
 	<artifactId>beanprocessor-test-beans</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+	<name>BeanProcessor :: Test Beans</name>
+	<description>
+	Contains simple bean definitions that will be processed by the BeanProcessor. It's more convenient
+	to set these up as separate maven projects.
+	</description>
+
 	<dependencies>
 		<dependency>
 			<groupId>com.google.guava</groupId>
