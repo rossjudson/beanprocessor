@@ -1,8 +1,6 @@
-## BeanProcessor JavaBean Generator
+# BeanProcessor JavaBean Generator -- UNDER CONSTRUCTION!!!
 
-## UNDER CONSTRUCTION!!!
-
-##What does it do?
+#What does it do?
 
 beanprocessor creates boilerplate for JavaBeans by generating a superclass. It
 works with Eclipse's annotation support as a factory, and also works with 
@@ -13,6 +11,8 @@ JAXB XML annotations.
 
 beanprocessor does the things that I am interested in, right now. It's not a replacement
 for the javadude annotation processor yet, if you use a lot of the features of that.
+
+#Usage
 
 Your build section needs to set the compiler to use source and targe versions of at least 1.6, and add the 
 bean processor as a dependency to the compiler plugin. It's also useful to insert build-helper-maven-plugin
@@ -76,7 +76,40 @@ Add annotations to your bean class to generate stuff:
 }, bound=true, predicates=true, extractors=true, fluent=true, jaxbType=JAXBMemberType.ATTRIBUTE)
 public class TestJob extends TestJobBase {     
 
-}     
+}
+```
+
+Each type of generator set at the bean level, has a corresponding setting at the property level,
+plus a *no* setting, to override.
+
+*bound* at the bean level makes every property a bound property, by default. At the property
+level, you can turn it off with *nobound*. Even if *bound* isn't set on the *SBean* annotation, you 
+can set it on the *SProperty* annotation.
+
+Sample output is at the end of this document. 
+
+##Using the Guava predicates
+
+A *HAS_* predicate is constructed for each property that isn't a primitive. Boolean properties get
+an *IS_* predicate. Use them like this:
+
+```java
+    TestJob job = new TestJob();
+    job.setTitle("I have a title");
+        
+    List<TestJob> jobs = asList(job, new TestJob());
+        
+    assertEquals(1, filter(jobs, TestJob.HAS_TITLE).size());
+```
+    
+#Using the Guava extractors
+
+A Guava function is created for each property:
+
+```java
+    Collection<Double> helloValues = Collections2.transform(jobs, TestJob.NUMBER);
+    for (Double v: helloValues)
+        System.out.println(v);
 ```
 
 ##Output
@@ -230,9 +263,7 @@ abstract public class TestJobBase {
         addPropertyChangeListener(propertyName, listener);
         return (TestJob) this;
     }
-} // end of class definition
-
-```
+} // end of class definition```
 
 
 
