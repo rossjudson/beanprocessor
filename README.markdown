@@ -1,11 +1,10 @@
-BeanProcessor JavaBean Generator
-================================
+## BeanProcessor JavaBean Generator
 
-UNDER CONSTRUCTION!!!
----------------------
+## UNDER CONSTRUCTION!!!
 
-What does it do?
-----------------
+
+##What does it do?
+
 
 beanprocessor creates boilerplate for JavaBeans by generating a superclass. It
 works with Eclipse's annotation support as a factory, and also works with 
