@@ -1,0 +1,40 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>com.soletta</groupId>
+	<artifactId>beanprocess</artifactId>
+	<version>0.1.4-SNAPSHOT</version>
+	<packaging>pom</packaging>
+	<name>Soletta BeanProcessor Aggregate</name>
+	<description>
+	    Simple wrapper for the other project builds.
+	</description>
+	
+	<organization>
+		<name>Ross Judson</name>
+	</organization>
+	<url>https://github.com/rossjudson/beanprocessor</url>
+	<licenses>
+		<license>
+			<name>Apache License</name>
+			<url>http://www.apache.org/licenses/LICENSE-2.0</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+	
+	<developers>
+		<developer>
+			<email>rossjudson@gmail.com</email>
+			<name>Ross Judson</name>
+			<url>https://github.com/rossjudson</url>
+			<id>rossjudson</id>
+		</developer>
+	</developers>
+	
+	<modules>
+	    <module>beanprocessor</module>
+	    <module>beanprocessor-test-beans</module>
+	    <module>beanprocessortest</module>
+	</modules>
+</project>
+	
