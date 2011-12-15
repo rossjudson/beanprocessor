@@ -22,7 +22,6 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedOptions;
-import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
@@ -41,7 +40,7 @@ import javax.tools.JavaFileObject;
  * 
  */
 @SupportedOptions(value = {})
-@SupportedAnnotationTypes({ "com.soletta.processor.SBean", "com.soletta.processor.SProperty" })
+@SupportedAnnotationTypes({ "com.soletta.beanprocessor.SBean", "com.soletta.beanprocessor.SProperty" })
 public class BeanProcessor extends AbstractProcessor {
 
     @Override
@@ -50,14 +49,14 @@ public class BeanProcessor extends AbstractProcessor {
         processingEnv.getMessager().printMessage(Kind.NOTE, "Initialized BeanProcessor");
     }
 
-    @Override
-    public SourceVersion getSupportedSourceVersion() {
-        // Since we care very little about the structure of Java, we can allow
-        // this processing
-        // to occur with regard to language version.
-        return SourceVersion.latest();
-    }
-
+//    @Override
+//    public SourceVersion getSupportedSourceVersion() {
+//        // Since we care very little about the structure of Java, we can allow
+//        // this processing
+//        // to occur with regard to language version.
+//        return SourceVersion.latest();
+//    }
+//
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         processingEnv.getMessager()
@@ -88,19 +87,6 @@ public class BeanProcessor extends AbstractProcessor {
                             throw new UnsupportedOperationException("LIST not yet implemented");
                         case SIMPLE:
                             String type = prop.typeString();
-                            String capName = capitalize(prop);
-
-                            createField(src, prop, type);
-                            createJavadoc(src, prop);
-                            createJAXB(src, sbean, prop);
-                            createIsOrGet(src, prop, type, capName);
-
-                            if (createSetter(src, sbean, prop, type, capName))
-                                generatePropertyChangeSupport = true;
-
-                            if (prop.fluent() || (sbean.fluent() && !prop.fluent()))
-                                createFluentSetter(src, prop, type, capName, beanTypeElement);
-
                             String boxed;
                             boolean isPrimitive;
                             if (type.length() == 0) {
@@ -114,6 +100,19 @@ public class BeanProcessor extends AbstractProcessor {
                                 isPrimitive = false;
                                 boxed = type;
                             }
+
+                            String capName = capitalize(prop);
+
+                            createField(src, prop, type);
+                            createJavadoc(src, prop);
+                            createJAXB(src, sbean, prop);
+                            createIsOrGet(src, prop, type, capName);
+
+                            if (createSetter(src, sbean, prop, type, capName))
+                                generatePropertyChangeSupport = true;
+
+                            if (prop.fluent() || (sbean.fluent() && !prop.fluent()))
+                                createFluentSetter(src, prop, type, capName, beanTypeElement);
 
                             if (prop.predicate() || (sbean.predicates() && !prop.nopredicate()))
                                 createGuavaPredicate(src, type, capName, beanElement, beanTypeElement, isPrimitive);
