@@ -24,8 +24,9 @@ import com.soletta.beanprocessor.SProperty;
         @SProperty(name="title"),
         @SProperty(name="running", type=boolean.class, javadoc="Determines if the job is running."),
         @SProperty(name="started", type=Date.class, jaxbType=JAXBMemberType.ELEMENT),
-        @SProperty(name="number", type=double.class, jaxbType=JAXBMemberType.TRANSIENT)
+        @SProperty(name="number", type=double.class, jaxbType=JAXBMemberType.TRANSIENT),
+        @SProperty(name="perm", type=boolean.class, final_=true, init="true")
 }, bound=true, predicates=true, extractors=true, fluent=true, jaxbType=JAXBMemberType.ATTRIBUTE)
 public class TestJob extends TestJobBase {     
 
-}      
+}       

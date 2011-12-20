@@ -74,4 +74,8 @@ public @interface SBean {
      */
     String javadoc() default "";
     
+    /** Declares that properties are final by default; setters will not be generated for final properties,
+     * and an init string must be specified.
+     */
+    boolean final_() default false;
 }

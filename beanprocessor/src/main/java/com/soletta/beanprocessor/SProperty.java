@@ -104,4 +104,16 @@ public @interface SProperty {
      */
     String javadoc() default "";
     
+    /** Sets the generate field as final, possibly overriding the bean-level setting. You must
+     * provide an init string as well.
+     * 
+     * @return
+     */
+    boolean final_() default false;
+    /** Sets the generated property as NOT final, overriding a bean-level setting.
+     * 
+     * @return
+     */
+    boolean notfinal() default false;
+    
 }

@@ -103,15 +103,15 @@ public class BeanProcessor extends AbstractProcessor {
 
                             String capName = capitalize(prop);
 
-                            createField(src, prop, type);
+                            boolean final_ = createField(src, sbean, prop, type, beanTypeElement);
                             createJavadoc(src, prop);
                             createJAXB(src, sbean, prop);
                             createIsOrGet(src, prop, type, capName);
 
-                            if (createSetter(src, sbean, prop, type, capName))
+                            if (!final_ && createSetter(src, sbean, prop, type, capName))
                                 generatePropertyChangeSupport = true;
 
-                            if (prop.fluent() || (sbean.fluent() && !prop.fluent()))
+                            if (!final_ && (prop.fluent() || (sbean.fluent() && !prop.fluent())))
                                 createFluentSetter(src, prop, type, capName, beanTypeElement);
 
                             if (prop.predicate() || (sbean.predicates() && !prop.nopredicate()))
@@ -262,9 +262,14 @@ public class BeanProcessor extends AbstractProcessor {
         }
     }
 
-    void createField(PrintWriter src, SProperty prop, String type) {
+    boolean createField(PrintWriter src, SBean bean, SProperty prop, String type, TypeElement beanTypeElement) {
+        boolean final_ = prop.final_() || (bean.final_() && !prop.notfinal());
+        if (final_ && prop.init().isEmpty()) {
+            processingEnv.getMessager().printMessage(Kind.ERROR, "A generated final field must include an init string.", beanTypeElement);
+        }
         String init = prop.init().isEmpty() ? "" : " = " + prop.init();
-        src.format("    private %s %s%s;\n", type, prop.name(), init);
+        src.format("    %sprivate %s %s%s;\n", final_? "final " : "", type, prop.name(), init);
+        return final_;
     }
 
     TypeMirror mirrorExtend(SBean sbean) {
