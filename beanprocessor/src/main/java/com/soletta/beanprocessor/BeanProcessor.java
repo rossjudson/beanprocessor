@@ -251,6 +251,9 @@ public class BeanProcessor extends AbstractProcessor {
         case TRANSIENT:
             src.println("    @javax.xml.bind.annotation.XmlTransient");
             break;
+        case LIST:
+            src.println("    @javax.xml.bind.annotation.XmlList");
+            break;
         default:
             break;
         }
