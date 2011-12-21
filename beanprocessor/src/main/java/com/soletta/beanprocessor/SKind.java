@@ -12,5 +12,16 @@
 package com.soletta.beanprocessor;
 
 public enum SKind {
-    SIMPLE, LIST
+    /** A simple single-valued property (the default).
+     * 
+     */
+    SIMPLE,
+    /** A list property (implemented as ArrayList, unless an init is supplied.
+     * 
+     */
+    LIST,
+    /** Generates a JavaFX 2 SDK ObservableList.
+     * 
+     */
+    OBSERVABLE_LIST
 }

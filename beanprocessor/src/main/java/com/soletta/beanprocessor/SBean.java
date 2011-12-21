@@ -78,4 +78,5 @@ public @interface SBean {
      * and an init string must be specified.
      */
     boolean final_() default false;
+    
 }

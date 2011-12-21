@@ -13,6 +13,8 @@ package com.soletta.beanprocessor;
 
 import static java.lang.Character.toUpperCase;
 
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeListenerProxy;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Set;
@@ -82,47 +84,53 @@ public class BeanProcessor extends AbstractProcessor {
                     src.println();
 
                     for (SProperty prop : sbean.properties()) {
+                        String type = prop.typeString();
+                        String boxed;
+                        boolean isPrimitive;
+                        if (type.length() == 0) {
+                            TypeMirror mirror = mirrorType(prop);
+                            type = mirror.toString();
+                            boxed = type;
+                            isPrimitive = mirror.getKind().isPrimitive();
+                            if (isPrimitive)
+                                boxed = processingEnv.getTypeUtils().boxedClass((PrimitiveType) mirror).toString();
+                        } else {
+                            isPrimitive = false;
+                            boxed = type;
+                        }
+
+                        String capName = capitalize(prop);
+
                         switch (prop.kind()) {
+                        case OBSERVABLE_LIST:
+                            type = "javafx.rt.ObservableList<" + boxed + ">";
+                            boxed = type;
+                            break;
                         case LIST:
-                            throw new UnsupportedOperationException("LIST not yet implemented");
-                        case SIMPLE:
-                            String type = prop.typeString();
-                            String boxed;
-                            boolean isPrimitive;
-                            if (type.length() == 0) {
-                                TypeMirror mirror = mirrorType(prop);
-                                type = mirror.toString();
-                                boxed = type;
-                                isPrimitive = mirror.getKind().isPrimitive();
-                                if (isPrimitive)
-                                    boxed = processingEnv.getTypeUtils().boxedClass((PrimitiveType) mirror).toString();
-                            } else {
-                                isPrimitive = false;
-                                boxed = type;
-                            }
-
-                            String capName = capitalize(prop);
-
-                            boolean final_ = createField(src, sbean, prop, type, beanTypeElement);
-                            createJavadoc(src, prop);
-                            createJAXB(src, sbean, prop);
-                            createIsOrGet(src, prop, type, capName);
-
-                            if (!final_ && createSetter(src, sbean, prop, type, capName))
-                                generatePropertyChangeSupport = true;
-
-                            if (!final_ && (prop.fluent() || (sbean.fluent() && !prop.fluent())))
-                                createFluentSetter(src, prop, type, capName, beanTypeElement);
-
-                            if (prop.predicate() || (sbean.predicates() && !prop.nopredicate()))
-                                createGuavaPredicate(src, type, capName, beanElement, beanTypeElement, isPrimitive);
-
-                            if (prop.extractor() || (sbean.extractors() && !prop.noextractor()))
-                                createGuavaExtractor(src, type, capName, beanElement, beanTypeElement, boxed);
-
-                            src.println();
+                            type = "java.util.List<" + boxed + ">";
+                            boxed = type;
+                            break;
+                        default:
                             break;
                         }
+                        boolean final_ = createField(src, sbean, prop, type, beanTypeElement, prop.kind());
+                        createJavadoc(src, prop);
+                        createJAXB(src, sbean, prop);
+                        createIsOrGet(src, prop, type, capName);
+
+                        if (!final_ && createSetter(src, sbean, prop, type, capName))
+                            generatePropertyChangeSupport = true;
+
+                        if (!final_ && (prop.fluent() || (sbean.fluent() && !prop.fluent())))
+                            createFluentSetter(src, prop, type, capName, beanTypeElement);
+
+                        if (prop.predicate() || (sbean.predicates() && !prop.nopredicate()))
+                            createGuavaPredicate(src, type, capName, beanElement, beanTypeElement, isPrimitive);
+
+                        if (prop.extractor() || (sbean.extractors() && !prop.noextractor()))
+                            createGuavaExtractor(src, type, capName, beanElement, beanTypeElement, boxed);
+
+                        src.println();
                     }
 
                     if (generatePropertyChangeSupport)
@@ -143,11 +151,104 @@ public class BeanProcessor extends AbstractProcessor {
 
     void createPropertyChangeSupport(PrintWriter src, SBean sbean, TypeElement typeElement) {
         src.println("    protected final java.beans.PropertyChangeSupport propertyChangeSupport = new java.beans.PropertyChangeSupport(this); ");
+        
+        src.println(" /**\r\n" + 
+        		"     * Add a PropertyChangeListener to the listener list.\r\n" + 
+        		"     * The listener is registered for all properties.\r\n" + 
+        		"     * The same listener object may be added more than once, and will be called\r\n" + 
+        		"     * as many times as it is added.\r\n" + 
+        		"     * If <code>listener</code> is null, no exception is thrown and no action\r\n" + 
+        		"     * is taken.\r\n" + 
+        		"     *\r\n" + 
+        		"     * @param listener  The PropertyChangeListener to be added\r\n" + 
+        		"     */");
         src.println("    public void addPropertyChangeListener(java.beans.PropertyChangeListener listener) { propertyChangeSupport.addPropertyChangeListener(listener); }");
+        
+        src.println(" /**\r\n" + 
+        		"     * Add a PropertyChangeListener for a specific property.  The listener\r\n" + 
+        		"     * will be invoked only when a call on firePropertyChange names that\r\n" + 
+        		"     * specific property.\r\n" + 
+        		"     * The same listener object may be added more than once.  For each\r\n" + 
+        		"     * property,  the listener will be invoked the number of times it was added\r\n" + 
+        		"     * for that property.\r\n" + 
+        		"     * If <code>propertyName</code> or <code>listener</code> is null, no\r\n" + 
+        		"     * exception is thrown and no action is taken.\r\n" + 
+        		"     *\r\n" + 
+        		"     * @param propertyName  The name of the property to listen on.\r\n" + 
+        		"     * @param listener  The PropertyChangeListener to be added\r\n" + 
+        		"     */");
         src.println("    public void addPropertyChangeListener(String propertyName, java.beans.PropertyChangeListener listener) { propertyChangeSupport.addPropertyChangeListener(propertyName, listener); }");
+        
+        src.println(" /**\r\n" + 
+        		"     * Remove a PropertyChangeListener from the listener list.\r\n" + 
+        		"     * This removes a PropertyChangeListener that was registered\r\n" + 
+        		"     * for all properties.\r\n" + 
+        		"     * If <code>listener</code> was added more than once to the same event\r\n" + 
+        		"     * source, it will be notified one less time after being removed.\r\n" + 
+        		"     * If <code>listener</code> is null, or was never added, no exception is\r\n" + 
+        		"     * thrown and no action is taken.\r\n" + 
+        		"     *\r\n" + 
+        		"     * @param listener  The PropertyChangeListener to be removed\r\n" + 
+        		"     */");
         src.println("    public void removePropertyChangeListener(java.beans.PropertyChangeListener listener) { propertyChangeSupport.removePropertyChangeListener(listener); }");
         src.println("    public void removePropertyChangeListener(String propertyName, java.beans.PropertyChangeListener listener) { propertyChangeSupport.removePropertyChangeListener(propertyName, listener); }");
-
+        
+        src.println("/**\r\n" + 
+        		"     * Check if there are any listeners for a specific property, including\r\n" + 
+        		"     * those registered on all properties.  If <code>propertyName</code>\r\n" + 
+        		"     * is null, only check for listeners registered on all properties.\r\n" + 
+        		"     *\r\n" + 
+        		"     * @param propertyName  the property name.\r\n" + 
+        		"     * @return true if there are one or more listeners for the given property\r\n" + 
+        		"     */");
+        src.println("    public boolean hasListeners(String propertyName) { return propertyChangeSupport.hasListeners(propertyName); }");
+        
+        src.println(" /**\r\n" + 
+        		"     * Returns an array of all the listeners that were added to the\r\n" + 
+        		"     * PropertyChangeSupport object with addPropertyChangeListener().\r\n" + 
+        		"     * <p>\r\n" + 
+        		"     * If some listeners have been added with a named property, then\r\n" + 
+        		"     * the returned array will be a mixture of PropertyChangeListeners\r\n" + 
+        		"     * and <code>PropertyChangeListenerProxy</code>s. If the calling\r\n" + 
+        		"     * method is interested in distinguishing the listeners then it must\r\n" + 
+        		"     * test each element to see if it's a\r\n" + 
+        		"     * <code>PropertyChangeListenerProxy</code>, perform the cast, and examine\r\n" + 
+        		"     * the parameter.\r\n" + 
+        		"     * \r\n" + 
+        		"     * <pre>\r\n" + 
+        		"     * PropertyChangeListener[] listeners = bean.getPropertyChangeListeners();\r\n" + 
+        		"     * for (int i = 0; i < listeners.length; i++) {\r\n" + 
+        		"     *   if (listeners[i] instanceof PropertyChangeListenerProxy) {\r\n" + 
+        		"     *     PropertyChangeListenerProxy proxy = \r\n" + 
+        		"     *                    (PropertyChangeListenerProxy)listeners[i];\r\n" + 
+        		"     *     if (proxy.getPropertyName().equals(\"foo\")) {\r\n" + 
+        		"     *       // proxy is a PropertyChangeListener which was associated\r\n" + 
+        		"     *       // with the property named \"foo\"\r\n" + 
+        		"     *     }\r\n" + 
+        		"     *   }\r\n" + 
+        		"     * }\r\n" + 
+        		"     *</pre>\r\n" + 
+        		"     *\r\n" + 
+        		"     * @see PropertyChangeListenerProxy\r\n" + 
+        		"     * @return all of the <code>PropertyChangeListeners</code> added or an \r\n" + 
+        		"     *         empty array if no listeners have been added\r\n" + 
+        		"     * @since 1.4\r\n" + 
+        		"     */");
+        src.println("    public java.beans.PropertyChangeListener[] getPropertyChangeListeners() { return propertyChangeSupport.getPropertyChangeListeners(); }");
+        
+        src.println(" /**\r\n" + 
+        		"     * Returns an array of all the listeners which have been associated \r\n" + 
+        		"     * with the named property.\r\n" + 
+        		"     *\r\n" + 
+        		"     * @param propertyName  The name of the property being listened to\r\n" + 
+        		"     * @return all of the <code>PropertyChangeListeners</code> associated with\r\n" + 
+        		"     *         the named property.  If no such listeners have been added,\r\n" + 
+        		"     *         or if <code>propertyName</code> is null, an empty array is\r\n" + 
+        		"     *         returned.\r\n" + 
+        		"     * @since 1.4\r\n" + 
+        		"     */");
+        src.println("    public java.beans.PropertyChangeListener[] getPropertyChangeListeners(String propertyName) { return propertyChangeSupport.getPropertyChangeListeners(propertyName); }");
+        
         if (sbean.fluent()) {
             src.format(
                     "    public %1$s listen(java.beans.PropertyChangeListener listener) { addPropertyChangeListener(listener);  return (%1$s)this;}\n",
@@ -265,7 +366,7 @@ public class BeanProcessor extends AbstractProcessor {
         }
     }
 
-    boolean createField(PrintWriter src, SBean bean, SProperty prop, String type, TypeElement beanTypeElement) {
+    boolean createField(PrintWriter src, SBean bean, SProperty prop, String type, TypeElement beanTypeElement, SKind sKind) {
         boolean final_ = prop.final_() || (bean.final_() && !prop.notfinal());
         if (final_ && prop.init().isEmpty()) {
             processingEnv.getMessager().printMessage(Kind.ERROR, "A generated final field must include an init string.", beanTypeElement);

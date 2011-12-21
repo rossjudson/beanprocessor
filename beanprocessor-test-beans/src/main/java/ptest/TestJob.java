@@ -17,6 +17,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 
 import com.soletta.beanprocessor.JAXBMemberType;
 import com.soletta.beanprocessor.SBean;
+import com.soletta.beanprocessor.SKind;
 import com.soletta.beanprocessor.SProperty;
 
 @XmlRootElement
@@ -25,8 +26,8 @@ import com.soletta.beanprocessor.SProperty;
         @SProperty(name="running", type=boolean.class, javadoc="Determines if the job is running."),
         @SProperty(name="started", type=Date.class, jaxbType=JAXBMemberType.ELEMENT),
         @SProperty(name="number", type=double.class, jaxbType=JAXBMemberType.TRANSIENT),
-        @SProperty(name="perm", type=boolean.class, final_=true, init="true")
+        @SProperty(name="perm", type=boolean.class, final_=true, init="true"),
+        @SProperty(name="listOfStrings", type=String.class, kind=SKind.LIST)
 }, bound=true, predicates=true, extractors=true, fluent=true, jaxbType=JAXBMemberType.ATTRIBUTE)
-public class TestJob extends TestJobBase {     
-
-}       
+public class TestJob extends TestJobBase {      
+}          
