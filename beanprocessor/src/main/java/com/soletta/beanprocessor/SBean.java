@@ -79,4 +79,24 @@ public @interface SBean {
      */
     boolean final_() default false;
     
+    /** Generate MXBean interface and information for all properties; override with nomxbean.
+     * 
+     * @return
+     */
+    boolean mxbean() default false;
+    
+    /** Generate string constants for each property.
+     * 
+     * @return
+     */
+    boolean propertyConstants() default false;
+    
+    /** Generate an enum with the properties, where the toString() of the enum is
+     * the name of the property.
+     * 
+     * @return
+     */
+    boolean propertyEnum() default false;
+    
+    
 }

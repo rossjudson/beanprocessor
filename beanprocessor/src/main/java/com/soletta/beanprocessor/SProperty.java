@@ -115,5 +115,15 @@ public @interface SProperty {
      * @return
      */
     boolean notfinal() default false;
-    
+
+    /** Generate into MXBean interface.
+     * 
+     * @return
+     */
+    boolean mxbean() default false;
+    /** Don't generate this property into the MXBean interface.
+     * 
+     * @return
+     */
+    boolean nomxbean() default false;
 }

@@ -13,10 +13,10 @@ package com.soletta.beanprocessor;
 
 import static java.lang.Character.toUpperCase;
 
-import java.beans.PropertyChangeListener;
-import java.beans.PropertyChangeListenerProxy;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -68,7 +68,9 @@ public class BeanProcessor extends AbstractProcessor {
             SBean sbean = beanElement.getAnnotation(SBean.class);
             TypeElement beanTypeElement = TypeElement.class.cast(beanElement);
             try {
-                boolean generatePropertyChangeSupport = false;
+                boolean generatePropertyChangeSupport = false, generateMXBeanInterface = sbean.mxbean();
+                List<String> mxMethods = new ArrayList<String>();
+                List<String> propertyNames = new ArrayList<String>();
                 String generatedClassName = beanTypeElement.getSimpleName() + "Base";
                 JavaFileObject source = processingEnv.getFiler().createSourceFile(beanTypeElement.getQualifiedName() + "Base",
                         beanElement);
@@ -84,6 +86,7 @@ public class BeanProcessor extends AbstractProcessor {
                     src.println();
 
                     for (SProperty prop : sbean.properties()) {
+                        propertyNames.add(prop.name());
                         String type = prop.typeString();
                         String boxed;
                         boolean isPrimitive;
@@ -116,7 +119,12 @@ public class BeanProcessor extends AbstractProcessor {
                         boolean final_ = createField(src, sbean, prop, type, beanTypeElement, prop.kind());
                         createJavadoc(src, prop);
                         createJAXB(src, sbean, prop);
-                        createIsOrGet(src, prop, type, capName);
+                        
+                        String methodContent = createIsOrGet(src, prop, type, capName);
+                        if (prop.mxbean() || (sbean.mxbean() && !prop.nomxbean())) {
+                            generateMXBeanInterface = true;
+                            mxMethods.add(methodContent);
+                        }
 
                         if (!final_ && createSetter(src, sbean, prop, type, capName))
                             generatePropertyChangeSupport = true;
@@ -136,6 +144,37 @@ public class BeanProcessor extends AbstractProcessor {
                     if (generatePropertyChangeSupport)
                         createPropertyChangeSupport(src, sbean, beanTypeElement);
 
+                    if (generateMXBeanInterface) {
+                        JavaFileObject mxbeanSource = processingEnv.getFiler().createSourceFile(beanTypeElement.getQualifiedName() + "BaseMXBean",
+                                beanElement);
+                        PrintWriter mxsrc = new PrintWriter(mxbeanSource.openOutputStream());
+                        try {
+                            mxsrc.format("package %s;\n", packageElement(beanTypeElement).getQualifiedName());
+                            mxsrc.println();
+                        } finally {
+                            mxsrc.close();
+                        }
+                    }
+                    
+                    if (sbean.propertyEnum()) {
+                        src.println();
+                        src.println("    public enum Properties {");
+                        
+                        boolean first = true;
+                        for (String propertyName: propertyNames) {
+                            if (!first) 
+                                src.println(",");
+                            else
+                                first = false;
+                            src.print("        " + propertyName.toUpperCase() + "(\"" + propertyName + "\")");
+                        }
+                        src.println(";");
+                        
+                        src.println("        private String property;");
+                        src.println("        private Properties(String property) { this.property = property; }");
+                        src.println("        public String toString() { return property; }");
+                        src.println("    }");
+                    }
                     src.format("} // end of class definition\n");
                 } finally {
                     src.close();
@@ -277,6 +316,15 @@ public class BeanProcessor extends AbstractProcessor {
         src.println();
     }
 
+    void createMXInterfaceDeclaration(PrintWriter src, SBean sbean, String genName) {
+        if (sbean.javadoc().length() > 0) {
+            src.format("/** %s */\n", sbean.javadoc());
+        }
+        src.format("@javax.annotation.Generated(value=\"com.soletta.processor.BeanProcessor\")\n");
+
+        src.format("public interface %s %s {\n", genName);
+        src.println();
+    }
     void createGuavaExtractor(PrintWriter src, String type, String capName, Element beanElement, TypeElement typeElement,
             String boxed) {
         String ptype = "com.google.common.base.Function<" + typeElement.getSimpleName() + "Base," + boxed + ">";
@@ -326,8 +374,10 @@ public class BeanProcessor extends AbstractProcessor {
         return generatePropertyChangeSupport;
     }
 
-    void createIsOrGet(PrintWriter src, SProperty prop, String type, String capName) {
-        src.format("    public %s %s%s() { return %s; }\n", type, isOrGet(type), capName, prop.name());
+    String createIsOrGet(PrintWriter src, SProperty prop, String type, String capName) {
+        String content = String.format("    public %s %s%s() { return %s; }\n", type, isOrGet(type), capName, prop.name());
+        src.print(content);
+        return content;
     }
 
     String capitalize(SProperty prop) {
