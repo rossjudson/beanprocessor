@@ -97,6 +97,13 @@ public @interface SBean {
      * @return
      */
     boolean propertyEnum() default false;
+
+    /** Creates object properties with new on the default constructor.
+     * 
+     * @return
+     */
+    boolean create() default false;
+    
     
     
 }

@@ -27,7 +27,9 @@ import com.soletta.beanprocessor.SProperty;
         @SProperty(name="started", type=Date.class, jaxbType=JAXBMemberType.ELEMENT),
         @SProperty(name="number", type=double.class, jaxbType=JAXBMemberType.TRANSIENT),
         @SProperty(name="perm", type=boolean.class, final_=true, init="true"),
-        @SProperty(name="listOfStrings", type=String.class, kind=SKind.LIST)
+        @SProperty(name="listOfStrings", type=String.class, kind=SKind.LIST),
+        @SProperty(name="builder", type=StringBuilder.class, delegate=Appendable.class, create = true),
+        @SProperty(name="del", type=DelegationTest.class, delegate=DelegationTest.class, init = "new DelegationTestImpl()")
 }, bound=true, predicates=true, extractors=true, fluent=true, jaxbType=JAXBMemberType.ATTRIBUTE, propertyEnum=true)
 public class TestJob extends TestJobBase {      
-}
+}     

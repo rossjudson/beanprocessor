@@ -20,16 +20,21 @@ import java.util.List;
 import java.util.Set;
 
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedOptions;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic.Kind;
 import javax.tools.JavaFileObject;
 
@@ -44,6 +49,9 @@ import javax.tools.JavaFileObject;
 @SupportedOptions(value = {})
 @SupportedAnnotationTypes({ "com.soletta.beanprocessor.SBean", "com.soletta.beanprocessor.SProperty" })
 public class BeanProcessor extends AbstractProcessor {
+
+    private Messager messager;
+    private Types types;
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -61,12 +69,16 @@ public class BeanProcessor extends AbstractProcessor {
 //
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        processingEnv.getMessager()
-                .printMessage(Kind.NOTE, String.format("Received %,d annotations in set.", annotations.size()));
+        messager = processingEnv.getMessager();
+        types = processingEnv.getTypeUtils();
+        
+        messager.printMessage(Kind.NOTE, String.format("Received %,d annotations in set.", annotations.size()));
 
         for (Element beanElement : roundEnv.getElementsAnnotatedWith(SBean.class)) {
+            
             SBean sbean = beanElement.getAnnotation(SBean.class);
             TypeElement beanTypeElement = TypeElement.class.cast(beanElement);
+            
             try {
                 boolean generatePropertyChangeSupport = false, generateMXBeanInterface = sbean.mxbean();
                 List<String> mxMethods = new ArrayList<String>();
@@ -81,11 +93,12 @@ public class BeanProcessor extends AbstractProcessor {
 
                     createClassDeclaration(src, sbean, generatedClassName);
 
-                    // Generate a protected constructor
+                    // Generate a protected constructor. Should we be generating abstract as well?
                     src.format("    protected %s() {}\n", generatedClassName);
                     src.println();
 
                     for (SProperty prop : sbean.properties()) {
+                        
                         propertyNames.add(prop.name());
                         String type = prop.typeString();
                         String boxed;
@@ -138,23 +151,57 @@ public class BeanProcessor extends AbstractProcessor {
                         if (prop.extractor() || (sbean.extractors() && !prop.noextractor()))
                             createGuavaExtractor(src, type, capName, beanElement, beanTypeElement, boxed);
 
+                        String delegateType = prop.delegateString();
+                        if (delegateType.isEmpty()) {
+                            TypeMirror delegate = mirrorDelegate(prop);
+                            TypeElement delElement = (TypeElement) types.asElement(delegate);
+                            System.out.println(delElement);
+                            delegateType = delegate.toString();
+                            if (delegateType.equals(Void.class.getName()))
+                                delegateType = "";
+                            else {
+                                List<? extends Element> enclosed = delElement.getEnclosedElements();
+                                for (Element e: enclosed) {
+                                    if (e instanceof ExecutableElement) {
+                                        ExecutableElement ee = (ExecutableElement)e;
+                                        ExecutableType eMirror = (ExecutableType) ee.asType(); 
+                                        TypeMirror returnMirror = ee.getReturnType();
+                                 
+                                        StringBuilder sig = new StringBuilder("    public ");
+                                        sig.append(returnMirror).append(' ');
+                                        sig.append(ee.getSimpleName()).append('(');
+                                        int n = 0;
+                                        for (VariableElement v: ee.getParameters()) {
+                                            if (n > 0)
+                                                sig.append(", ");
+                                            sig.append(v.asType()).append(' ');
+                                            sig.append("arg").append(n++);
+                                        }
+                                        sig.append(") { ");
+                                        if (!returnMirror.toString().equals("void"))
+                                            sig.append("return ");
+                                        sig.append(prop.name()).append('.').append(ee.getSimpleName()).append('(');
+                                        for (int i = 0; i < n; i++) {
+                                            if (i > 0)
+                                                sig.append(", ");
+                                            sig.append("arg").append(i);
+                                        }
+                                        sig.append("); }");
+                                        
+                                        src.println(sig);
+                                    }
+                                }
+                            }
+                        }
+                        
                         src.println();
                     }
 
                     if (generatePropertyChangeSupport)
                         createPropertyChangeSupport(src, sbean, beanTypeElement);
 
-                    if (generateMXBeanInterface) {
-                        JavaFileObject mxbeanSource = processingEnv.getFiler().createSourceFile(beanTypeElement.getQualifiedName() + "BaseMXBean",
-                                beanElement);
-                        PrintWriter mxsrc = new PrintWriter(mxbeanSource.openOutputStream());
-                        try {
-                            mxsrc.format("package %s;\n", packageElement(beanTypeElement).getQualifiedName());
-                            mxsrc.println();
-                        } finally {
-                            mxsrc.close();
-                        }
-                    }
+                    if (generateMXBeanInterface)
+                        createMXBeanInterface(beanElement, beanTypeElement);
                     
                     if (sbean.propertyEnum()) {
                         src.println();
@@ -180,7 +227,7 @@ public class BeanProcessor extends AbstractProcessor {
                     src.close();
                 }
             } catch (IOException e) {
-                processingEnv.getMessager().printMessage(Kind.ERROR, "Unable to create source file");
+                messager.printMessage(Kind.ERROR, "Unable to create source file");
             }
 
         }
@@ -188,10 +235,23 @@ public class BeanProcessor extends AbstractProcessor {
         return true;
     }
 
+    private void createMXBeanInterface(Element beanElement, TypeElement beanTypeElement)
+            throws IOException {
+        JavaFileObject mxbeanSource = processingEnv.getFiler().createSourceFile(beanTypeElement.getQualifiedName() + "BaseMXBean",
+                beanElement);
+        PrintWriter mxsrc = new PrintWriter(mxbeanSource.openOutputStream());
+        try {
+            mxsrc.format("package %s;\n", packageElement(beanTypeElement).getQualifiedName());
+            mxsrc.println();
+        } finally {
+            mxsrc.close();
+        }
+    }
+
     void createPropertyChangeSupport(PrintWriter src, SBean sbean, TypeElement typeElement) {
         src.println("    protected final java.beans.PropertyChangeSupport propertyChangeSupport = new java.beans.PropertyChangeSupport(this); ");
         
-        src.println(" /**\r\n" + 
+        src.println("    /**\r\n" + 
         		"     * Add a PropertyChangeListener to the listener list.\r\n" + 
         		"     * The listener is registered for all properties.\r\n" + 
         		"     * The same listener object may be added more than once, and will be called\r\n" + 
@@ -203,7 +263,7 @@ public class BeanProcessor extends AbstractProcessor {
         		"     */");
         src.println("    public void addPropertyChangeListener(java.beans.PropertyChangeListener listener) { propertyChangeSupport.addPropertyChangeListener(listener); }");
         
-        src.println(" /**\r\n" + 
+        src.println("    /**\r\n" + 
         		"     * Add a PropertyChangeListener for a specific property.  The listener\r\n" + 
         		"     * will be invoked only when a call on firePropertyChange names that\r\n" + 
         		"     * specific property.\r\n" + 
@@ -218,7 +278,7 @@ public class BeanProcessor extends AbstractProcessor {
         		"     */");
         src.println("    public void addPropertyChangeListener(String propertyName, java.beans.PropertyChangeListener listener) { propertyChangeSupport.addPropertyChangeListener(propertyName, listener); }");
         
-        src.println(" /**\r\n" + 
+        src.println("    /**\r\n" + 
         		"     * Remove a PropertyChangeListener from the listener list.\r\n" + 
         		"     * This removes a PropertyChangeListener that was registered\r\n" + 
         		"     * for all properties.\r\n" + 
@@ -232,7 +292,7 @@ public class BeanProcessor extends AbstractProcessor {
         src.println("    public void removePropertyChangeListener(java.beans.PropertyChangeListener listener) { propertyChangeSupport.removePropertyChangeListener(listener); }");
         src.println("    public void removePropertyChangeListener(String propertyName, java.beans.PropertyChangeListener listener) { propertyChangeSupport.removePropertyChangeListener(propertyName, listener); }");
         
-        src.println("/**\r\n" + 
+        src.println("    /**\r\n" + 
         		"     * Check if there are any listeners for a specific property, including\r\n" + 
         		"     * those registered on all properties.  If <code>propertyName</code>\r\n" + 
         		"     * is null, only check for listeners registered on all properties.\r\n" + 
@@ -242,7 +302,7 @@ public class BeanProcessor extends AbstractProcessor {
         		"     */");
         src.println("    public boolean hasListeners(String propertyName) { return propertyChangeSupport.hasListeners(propertyName); }");
         
-        src.println(" /**\r\n" + 
+        src.println("    /**\r\n" + 
         		"     * Returns an array of all the listeners that were added to the\r\n" + 
         		"     * PropertyChangeSupport object with addPropertyChangeListener().\r\n" + 
         		"     * <p>\r\n" + 
@@ -275,7 +335,7 @@ public class BeanProcessor extends AbstractProcessor {
         		"     */");
         src.println("    public java.beans.PropertyChangeListener[] getPropertyChangeListeners() { return propertyChangeSupport.getPropertyChangeListeners(); }");
         
-        src.println(" /**\r\n" + 
+        src.println("    /**\r\n" + 
         		"     * Returns an array of all the listeners which have been associated \r\n" + 
         		"     * with the named property.\r\n" + 
         		"     *\r\n" + 
@@ -349,8 +409,7 @@ public class BeanProcessor extends AbstractProcessor {
             isOrHas = null;
         }
         if (isOrHas != null) {
-            src.format("    public final static %1$s %2$s = new %1$s(){ public boolean apply(%4$sBase value) { " + "%3$s\n"
-                    + "} };\n", ptype, isOrHas + capName.toUpperCase(), body, beanElement.getSimpleName());
+            src.format("    public final static %1$s %2$s = new %1$s(){ public boolean apply(%4$sBase value) { " + "%3$s  } };\n", ptype, isOrHas + capName.toUpperCase(), body, beanElement.getSimpleName());
         }
     }
 
@@ -438,6 +497,15 @@ public class BeanProcessor extends AbstractProcessor {
     TypeMirror mirrorType(SProperty sprop) {
         try {
             sprop.type().getName();
+            throw new RuntimeException();
+        } catch (MirroredTypeException mte) {
+            return mte.getTypeMirror();
+        }
+    }
+    
+    TypeMirror mirrorDelegate(SProperty sprop) {
+        try {
+            sprop.delegate().getName();
             throw new RuntimeException();
         } catch (MirroredTypeException mte) {
             return mte.getTypeMirror();

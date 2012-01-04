@@ -34,12 +34,27 @@ public @interface SProperty {
      * @return
      */
     Class<?> type() default String.class;
-    /** A fully qualitifed string to use as the type for this property, primarily useful if you want to supply a parameterized type,
+    /** A fully qualified string to use as the type for this property, primarily useful if you want to supply a parameterized type,
      * such as ListenableFuture<String>.
      * 
      * @return
      */
     String typeString() default "";
+    
+    /** When specified, the generated bean will implement the delegate interface and delegation
+     * methods will be supplied for each method in the interface.
+     * 
+     * @return
+     */
+    Class<?> delegate() default Void.class;
+    
+    /** A fully qualified string to use for the delegation type, which helps with specifying
+     * generic types.
+     * 
+     * @return
+     */
+    String delegateString() default "";
+    
     /** The kind of the property, which can be used to do collections generation.
      * 
      * @return
@@ -76,6 +91,18 @@ public @interface SProperty {
      * @return
      */
     boolean noextractor() default false;
+    
+    /** For object properties, if create is true the field will be initialized with new on
+     * the default constructor.
+     * 
+     * @return
+     */
+    boolean create() default false;
+    /** Prevents this field from being automatically initialized if the bean-level annotations
+     * are requesting initialization.
+     * @return
+     */
+    boolean nocreate() default false;
     
     /** If supplied, the text string is used to initialize the property.
      * 
