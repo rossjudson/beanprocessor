@@ -1,4 +1,4 @@
-# BeanProcessor JavaBean Generator -- UNDER CONSTRUCTION!!!
+# BeanProcessor JavaBean Generator
 
 #What does it do?
 
