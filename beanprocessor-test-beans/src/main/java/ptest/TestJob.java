@@ -28,8 +28,8 @@ import com.soletta.beanprocessor.SProperty;
         @SProperty(name="number", type=double.class, jaxbType=JAXBMemberType.TRANSIENT),
         @SProperty(name="perm", type=boolean.class, final_=true, init="true"),
         @SProperty(name="listOfStrings", type=String.class, kind=SKind.LIST),
-        @SProperty(name="builder", type=StringBuilder.class, delegate=Appendable.class, create = true),
-        @SProperty(name="del", type=DelegationTest.class, delegate=DelegationTest.class, init = "new DelegationTestImpl()")
+        @SProperty(name="builder", type=StringBuilder.class, delegate=Appendable.class, create = true, jaxbType=JAXBMemberType.TRANSIENT),
+        @SProperty(name="del", type=DelegationTest.class, delegate=DelegationTest.class, init = "new DelegationTestImpl()", jaxbType=JAXBMemberType.TRANSIENT)
 }, bound=true, predicates=true, extractors=true, fluent=true, jaxbType=JAXBMemberType.ATTRIBUTE, propertyEnum=true)
 public class TestJob extends TestJobBase {      
 }     
