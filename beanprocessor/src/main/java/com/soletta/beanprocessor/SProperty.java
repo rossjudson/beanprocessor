@@ -22,7 +22,7 @@ import java.lang.annotation.Target;
  *
  */
 @Target({ElementType.FIELD, ElementType.METHOD})
-@Retention(RetentionPolicy.CLASS)
+@Retention(RetentionPolicy.SOURCE)
 public @interface SProperty {
     /** The name of the property.
      * 
