@@ -153,4 +153,17 @@ public @interface SProperty {
      * @return
      */
     boolean nomxbean() default false;
+    
+    /** Generate JavaFX-compatible property.
+     * 
+     * @return
+     */
+    boolean fxbean() default false;
+    /** Don't generate this property as JavaFX-compatible.
+     * 
+     * @return
+     */
+    boolean nofxbean() default false;
+    
+    
 }

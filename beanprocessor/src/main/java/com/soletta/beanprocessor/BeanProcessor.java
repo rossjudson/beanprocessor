@@ -99,6 +99,8 @@ public class BeanProcessor extends AbstractProcessor {
 
                     for (SProperty prop : sbean.properties()) {
                         
+                        boolean isFX = prop.fxbean() || (sbean.fxbean() && !prop.nofxbean());
+                        
                         propertyNames.add(prop.name());
                         String type = prop.typeString();
                         String boxed;
@@ -108,8 +110,9 @@ public class BeanProcessor extends AbstractProcessor {
                             type = mirror.toString();
                             boxed = type;
                             isPrimitive = mirror.getKind().isPrimitive();
-                            if (isPrimitive)
+                            if (isPrimitive) {
                                 boxed = processingEnv.getTypeUtils().boxedClass((PrimitiveType) mirror).toString();
+                            } 
                         } else {
                             isPrimitive = false;
                             boxed = type;
@@ -129,17 +132,19 @@ public class BeanProcessor extends AbstractProcessor {
                         default:
                             break;
                         }
-                        boolean final_ = createField(src, sbean, prop, type, beanTypeElement, prop.kind());
+                        
+                        boolean final_ = createField(src, sbean, prop, type, boxed, beanTypeElement, prop.kind(), isFX);
+                        
                         createJavadoc(src, prop);
                         createJAXB(src, sbean, prop);
                         
-                        String methodContent = createIsOrGet(src, prop, type, capName);
+                        String methodContent = createIsOrGet(src, prop, type, capName, isFX);
                         if (prop.mxbean() || (sbean.mxbean() && !prop.nomxbean())) {
                             generateMXBeanInterface = true;
                             mxMethods.add(methodContent);
                         }
 
-                        if (!final_ && createSetter(src, sbean, prop, type, capName))
+                        if (!final_ && createSetter(src, sbean, prop, type, capName, isFX))
                             generatePropertyChangeSupport = true;
 
                         if (!final_ && (prop.fluent() || (sbean.fluent() && !prop.fluent())))
@@ -418,23 +423,28 @@ public class BeanProcessor extends AbstractProcessor {
                 typeElement.getSimpleName(), prop.name(), type, capName);
     }
 
-    boolean createSetter(PrintWriter src, SBean sbean, SProperty prop, String type, String capName) {
+    boolean createSetter(PrintWriter src, SBean sbean, SProperty prop, String type, String capName, boolean isFX) {
         boolean generatePropertyChangeSupport = false;
         src.format("    public void set%s(%s %s) {\n", capName, type, prop.name());
-        if (prop.bound() || (sbean.bound() && !prop.unbound())) {
+        if (!isFX && (prop.bound() || (sbean.bound() && !prop.unbound()))) {
             generatePropertyChangeSupport = true;
             src.format("        %s oldValue = this.%s;\n", type, prop.name());
             src.format("        this.%s = %1$s;\n", prop.name());
             src.format("        propertyChangeSupport.firePropertyChange(\"%s\", oldValue, %1$s);\n", prop.name());
         } else {
-            src.format("        this.%3$s = %3$s;\n", capName, type, prop.name());
+            if (isFX) {
+                src.format("        this.%3$s.set(%3$s);\n", capName, type, prop.name());
+            } else {
+                src.format("        this.%3$s = %3$s;\n", capName, type, prop.name());
+            }
         }
         src.println("    }");
         return generatePropertyChangeSupport;
     }
 
-    String createIsOrGet(PrintWriter src, SProperty prop, String type, String capName) {
-        String content = String.format("    public %s %s%s() { return %s; }\n", type, isOrGet(type), capName, prop.name());
+    String createIsOrGet(PrintWriter src, SProperty prop, String type, String capName, boolean isFX) {
+        String fx = isFX ? ".get()" : "";
+        String content = String.format("    public %s %s%s() { return %s%s; }\n", type, isOrGet(type), capName, prop.name(), fx);
         src.print(content);
         return content;
     }
@@ -475,13 +485,27 @@ public class BeanProcessor extends AbstractProcessor {
         }
     }
 
-    boolean createField(PrintWriter src, SBean bean, SProperty prop, String type, TypeElement beanTypeElement, SKind sKind) {
+    boolean createField(PrintWriter src, SBean bean, SProperty prop, String type, String boxed, TypeElement beanTypeElement, SKind sKind, boolean isFX) {
         boolean final_ = prop.final_() || (bean.final_() && !prop.notfinal());
         if (final_ && prop.init().isEmpty()) {
             processingEnv.getMessager().printMessage(Kind.ERROR, "A generated final field must include an init string.", beanTypeElement);
         }
+        String scope = bean.protectedScope() ? "protected" : "private"; 
         String init = prop.init().isEmpty() ? "" : " = " + prop.init();
-        src.format("    %sprivate %s %s%s;\n", final_? "final " : "", type, prop.name(), init);
+        if (isFX) {
+            if (boxed.equals(type)) {
+                if (type.equals("java.lang.String")) {
+                    src.format("    final %3$s javafx.beans.property.StringProperty %2$s = new javafx.beans.property.SimpleStringProperty(this, \"%2$s\");\n    public javafx.beans.property.StringProperty %2$sProperty() { return %2$s; }\n", "", prop.name(), scope);
+                } else {
+                    src.format("    final %3$s javafx.beans.property.ObjectProperty<%1$s> %2$s = new javafx.beans.property.SimpleObjectProperty<%1$s>(this, \"%2$s\");\n    public javafx.beans.property.ObjectProperty<%1$s> %2$sProperty() { return %2$s; }\n", type, prop.name(), scope);
+                }
+            } else {
+                String s = boxed.substring(10);
+                src.format("    final %3$s javafx.beans.property.%1$sProperty %2$s = new javafx.beans.property.Simple%1$sProperty(this, \"%2$s\");\n    public javafx.beans.property.%1$sProperty %2$sProperty() { return %2$s; }\n", s, prop.name(), scope);
+            }
+        } else {
+            src.format("    %s %s %s %s%s;\n", scope, final_? "final " : "", type, prop.name(), init);
+        } 
         return final_;
     }
 

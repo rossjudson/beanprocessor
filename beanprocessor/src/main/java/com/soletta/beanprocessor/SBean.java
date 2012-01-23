@@ -104,6 +104,15 @@ public @interface SBean {
      */
     boolean create() default false;
     
+    /** Generate properties as JavaFX-compatible.
+     * 
+     */
+    boolean fxbean() default false;
     
+    /** Generate bean fields with protected scope, making them accessible by the concrete subclass.
+     * 
+     * @return
+     */
+    boolean protectedScope() default false;
     
 }
