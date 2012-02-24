@@ -16,6 +16,7 @@ import static java.lang.Character.toUpperCase;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -47,7 +48,7 @@ import javax.tools.JavaFileObject;
  * 
  */
 @SupportedOptions(value = {})
-@SupportedAnnotationTypes({ "com.soletta.beanprocessor.SBean", "com.soletta.beanprocessor.SProperty" })
+@SupportedAnnotationTypes({ "com.soletta.beanprocessor.SBean", "com.soletta.beanprocessor.SProperty", "com.soletta.beanprocessor.Tuples", "com.soletta.beanprocessor.Specialize" })
 public class BeanProcessor extends AbstractProcessor {
 
     private Messager messager;
@@ -74,6 +75,19 @@ public class BeanProcessor extends AbstractProcessor {
         
         messager.printMessage(Kind.NOTE, String.format("Received %,d annotations in set.", annotations.size()));
 
+        Set<Element> tupleGeneration = new HashSet<Element>(roundEnv.getElementsAnnotatedWith(Tuples.class));
+        tupleGeneration.addAll(roundEnv.getElementsAnnotatedWith(Specialize.class));
+        
+        for (Element element : tupleGeneration) {
+            PackageElement packageElement = (PackageElement)element;
+            messager.printMessage(Kind.NOTE, String.format("Generating tuples for package %s", packageElement.getQualifiedName()));
+            try {
+                new TupleGenerator().generateTupleClasses(packageElement, processingEnv, roundEnv);
+            } catch (IOException e) {
+                messager.printMessage(Kind.ERROR, "Unable to create source tuple classes");
+            }
+        }
+        
         for (Element beanElement : roundEnv.getElementsAnnotatedWith(SBean.class)) {
             
             SBean sbean = beanElement.getAnnotation(SBean.class);
@@ -160,7 +174,7 @@ public class BeanProcessor extends AbstractProcessor {
                         if (delegateType.isEmpty()) {
                             TypeMirror delegate = mirrorDelegate(prop);
                             TypeElement delElement = (TypeElement) types.asElement(delegate);
-                            System.out.println(delElement);
+                            //System.out.println(delElement);
                             delegateType = delegate.toString();
                             if (delegateType.equals(Void.class.getName()))
                                 delegateType = "";
