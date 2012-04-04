@@ -506,6 +506,8 @@ public class BeanProcessor extends AbstractProcessor {
         }
         String scope = bean.protectedScope() ? "protected" : "private"; 
         String init = prop.init().isEmpty() ? "" : " = " + prop.init();
+        if (prop.create()) 
+            init = String.format(" = new %s()", type); 
         if (isFX) {
             if (boxed.equals(type)) {
                 if (type.equals("java.lang.String")) {
