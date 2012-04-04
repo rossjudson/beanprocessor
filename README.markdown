@@ -9,6 +9,30 @@ can create getters and setters. It can also create a "fluent" setting API,
 generate Guava-compatible predicates and extractor functions, and emit some
 JAXB XML annotations.
 
+There's also a tuple generation facility, for both generic tuples and specialized
+tuple types including primitives. Generic tuples look like this:
+
+```java
+public class Tuple2<A, B> {
+
+  public final A _1;
+  public final B _2;
+  ...
+}
+```
+
+Specialized tuples use primitives, so a tuple type that holds a double and a 
+String can look like this:
+
+```java
+public class DoubleString {
+
+  public final double _1;
+  public final java.lang.String _2;
+  ...
+}
+```
+
 beanprocessor does the things that I am interested in, right now. It's not a replacement
 for the javadude annotation processor yet, if you use a lot of the features of that.
 
@@ -87,6 +111,34 @@ level, you can turn it off with *nobound*. Even if *bound* isn't set on the *SBe
 can set it on the *SProperty* annotation.
 
 Sample output is at the end of this document. 
+
+## Generating Tuples
+
+Create a package-info.java file, in the package you want tuple classes generated into. On the 
+package declaration, add a Tuples annotation if you want generic tuples, and/or add a 
+Specialized annotation to create particular optimized tuple types. Here's an example:
+
+```java
+@Tuples(20)
+@Specialize({
+    @Tuple(tupleTypeName="AllPrims", value={byte.class, short.class, int.class, long.class, char.class, float.class, double.class}),
+    @Tuple(value={byte.class, short.class, int.class, long.class, char.class, float.class}),
+    @Tuple(tupleTypeName="DoubleString", value={double.class, String.class})
+    })
+package ptest;
+import com.soletta.beanprocessor.Specialize;
+import com.soletta.beanprocessor.Tuple;
+import com.soletta.beanprocessor.Tuples;
+```
+
+Note again that you must annotate the package, in the package-info.java file.
+
+The generated tuples support equals and hashCode. They also have a toArray() (and 
+a toArray(Object[])) method.
+
+To construct a generic tuple, call Tuples.of(field1, field2, ...).
+
+To construct a specialized tuple, call SpecializeTuple.of(field1, field2, ...);
 
 ##Using the Guava predicates
 
